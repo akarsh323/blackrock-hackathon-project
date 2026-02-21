@@ -35,7 +35,7 @@ def _is_valid(tx: RawTransaction, seen_dates: dict) -> Tuple[bool, str]:
 
 
 def _apply_q(
-        date: str, remanent: float, q_periods: List[QPeriod]
+    date: str, remanent: float, q_periods: List[QPeriod]
 ) -> Tuple[float, Optional[AppliedQ]]:
     matching = [q for q in q_periods if is_in_period(date, q.start, q.end)]
     if not matching:
@@ -45,7 +45,7 @@ def _apply_q(
 
 
 def _apply_p(
-        date: str, remanent: float, p_periods: List[PPeriod]
+    date: str, remanent: float, p_periods: List[PPeriod]
 ) -> Tuple[float, List[AppliedP]]:
     applied: List[AppliedP] = []
     for p in p_periods:
@@ -56,9 +56,9 @@ def _apply_p(
 
 
 def _build_filtered_transactions(
-        raw: List[RawTransaction],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
+    raw: List[RawTransaction],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
 ) -> Tuple[List[FilteredTransaction], float, float]:
     date_counts: dict[str, int] = {}
     for tx in raw:
@@ -121,15 +121,15 @@ def _sum_remanents_for_k(transactions: List[FilteredTransaction], k: KPeriod) ->
 
 
 def _compute_returns_with_periods(
-        raw_transactions: List[RawTransaction],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        k_periods: List[KPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
-        rate: float,
-        include_tax: bool,
+    raw_transactions: List[RawTransaction],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    k_periods: List[KPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
+    rate: float,
+    include_tax: bool,
 ) -> ReturnResponse:
     years = _years_to_retirement(age)
 
@@ -167,13 +167,13 @@ def _compute_returns_with_periods(
 
 
 def compute_nps_returns(
-        transactions: List[RawTransaction],
-        k_periods: List[KPeriod],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
+    transactions: List[RawTransaction],
+    k_periods: List[KPeriod],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
 ) -> ReturnResponse:
     return _compute_returns_with_periods(
         transactions,
@@ -189,13 +189,13 @@ def compute_nps_returns(
 
 
 def compute_index_returns(
-        transactions: List[RawTransaction],
-        k_periods: List[KPeriod],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
+    transactions: List[RawTransaction],
+    k_periods: List[KPeriod],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
 ) -> ReturnResponse:
     return _compute_returns_with_periods(
         transactions,
