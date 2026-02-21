@@ -1,6 +1,11 @@
-import pytest
-from service.micro_savings.app.api.endpoints.ceiling.ceiling_service import compute_ceiling, compute_remanent, parse_all
-from service.micro_savings.app.api.endpoints.transaction.transaction import RawTransaction
+from service.micro_savings.app.models.transaction import (
+    RawTransaction,
+)
+from service.micro_savings.app.transaction_engine.ceiling_processor.ceiling_service import (
+    compute_ceiling,
+    compute_remanent,
+    parse_all,
+)
 
 
 class TestComputeCeiling:
@@ -36,7 +41,7 @@ class TestParseAll:
         txns = [RawTransaction(date="2023-10-12 20:15:30", amount=250)]
         result = parse_all(txns)
         assert len(result) == 1
-        assert result[0].ceiling  == 300
+        assert result[0].ceiling == 300
         assert result[0].remanent == 50
 
     def test_parse_multiple_transactions(self):
@@ -45,8 +50,8 @@ class TestParseAll:
             RawTransaction(date="2023-01-02 00:00:00", amount=847),
         ]
         result = parse_all(txns)
-        assert result[0].remanent == 100   # 200 - 100
-        assert result[1].remanent == 53    # 900 - 847
+        assert result[0].remanent == 100  # 200 - 100
+        assert result[1].remanent == 53  # 900 - 847
 
     def test_preserves_order(self):
         txns = [

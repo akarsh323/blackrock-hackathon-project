@@ -1,6 +1,10 @@
 from fastapi import APIRouter
-from service.micro_savings.app.api.endpoints.returns.returns import ReturnRequest, ReturnResponse
-from service.micro_savings.app.api.endpoints.returns.returns_service import compute_nps_returns, compute_index_returns
+
+from service.micro_savings.app.models.returns import ReturnResponse, ReturnRequest
+from service.micro_savings.app.transaction_engine.returns_processor import (
+    compute_nps_returns,
+    compute_index_returns,
+)
 
 router = APIRouter()
 

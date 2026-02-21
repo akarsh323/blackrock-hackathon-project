@@ -1,5 +1,7 @@
-import pytest
-from service.micro_savings.app.api.endpoints.tax.tax_service import compute_tax, compute_nps_tax_benefit
+from service.micro_savings.app.transaction_engine.tax_processor.tax_service import (
+    compute_tax,
+    compute_nps_tax_benefit,
+)
 
 
 class TestComputeTax:
@@ -27,7 +29,7 @@ class TestComputeTax:
         tax_15L = compute_tax(1_500_000)
         tax_16L = compute_tax(1_600_000)
         diff = tax_16L - tax_15L
-        assert abs(diff - 30_000.0) < 0.01   # 30% of 1L = 30,000
+        assert abs(diff - 30_000.0) < 0.01  # 30% of 1L = 30,000
 
     def test_zero_income_no_tax(self):
         assert compute_tax(0) == 0.0
@@ -50,6 +52,6 @@ class TestNPSTaxBenefit:
 
     def test_deduction_capped_at_200k(self):
         # Even if we invest 10L, deduction max is 2L
-        benefit_small  = compute_nps_tax_benefit(200_000,   monthly_wage=200_000)
-        benefit_large  = compute_nps_tax_benefit(1_000_000, monthly_wage=200_000)
-        assert benefit_small == benefit_large   # Both capped at 2L deduction
+        benefit_small = compute_nps_tax_benefit(200_000, monthly_wage=200_000)
+        benefit_large = compute_nps_tax_benefit(1_000_000, monthly_wage=200_000)
+        assert benefit_small == benefit_large  # Both capped at 2L deduction

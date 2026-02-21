@@ -23,10 +23,10 @@ def compute_tax(annual_income: float) -> float:
     tax = 0.0
 
     slabs = [
-        (700_000,    0.00),
-        (1_000_000,  0.10),
-        (1_200_000,  0.15),
-        (1_500_000,  0.20),
+        (700_000, 0.00),
+        (1_000_000, 0.10),
+        (1_200_000, 0.15),
+        (1_500_000, 0.20),
         (float("inf"), 0.30),
     ]
 
@@ -41,10 +41,7 @@ def compute_tax(annual_income: float) -> float:
     return round(tax, 2)
 
 
-def compute_nps_tax_benefit(
-    total_invested: float,
-    monthly_wage: float
-) -> float:
+def compute_nps_tax_benefit(total_invested: float, monthly_wage: float) -> float:
     """
     Calculate tax saved by investing via NPS under Section 80CCD(1B).
 
@@ -66,11 +63,11 @@ def compute_nps_tax_benefit(
         max_deduction = min(10000, 60000, 200000) = 10000
         benefit = tax(600000) - tax(590000) = 0 - 0 = 0  (below 7L slab)
     """
-    annual_wage    = monthly_wage * 12
-    max_deduction  = min(total_invested, annual_wage * 0.10, 200_000)
+    annual_wage = monthly_wage * 12
+    max_deduction = min(total_invested, annual_wage * 0.10, 200_000)
 
     tax_before = compute_tax(annual_wage)
-    tax_after  = compute_tax(annual_wage - max_deduction)
+    tax_after = compute_tax(annual_wage - max_deduction)
 
     benefit = tax_before - tax_after
     return round(max(benefit, 0.0), 2)  # Never negative

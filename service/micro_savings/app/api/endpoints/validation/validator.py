@@ -1,15 +1,14 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import List
-from service.micro_savings.app.api.endpoints.transaction.transaction import ParsedTransaction, ValidationResult
-from service.micro_savings.app.api.endpoints.validation.validation_service import validate_transactions
+
+from service.micro_savings.app.models.transaction import (
+    ValidationResult,
+)
+from service.micro_savings.app.models.validator import ValidatorRequest
+from service.micro_savings.app.transaction_engine.validation_processor.validation_service import (
+    validate_transactions,
+)
 
 router = APIRouter()
-
-
-class ValidatorRequest(BaseModel):
-    wage: float
-    transactions: List[ParsedTransaction]
 
 
 @router.post("/transactions:validator", response_model=ValidationResult)

@@ -1,16 +1,15 @@
 from typing import List
-from service.micro_savings.app.api.endpoints.transaction.transaction import FilteredTransaction
-from service.micro_savings.app.api.endpoints.periods.periods import KPeriod
-from service.micro_savings.app.api.endpoints.returns.returns import ReturnResponse, SavingsByDate
-from service.micro_savings.app.api.endpoints.qpk.qpk_service import sum_remanents_for_k_period
-from service.micro_savings.app.api.endpoints.tax.tax_service import compute_nps_tax_benefit
 
-# ── Interest Rates ─────────────────────────────────────────────────────────────
-NPS_RATE   = 0.0711   # 7.11% annual return for NPS
-INDEX_RATE = 0.1449   # 14.49% annual return for Index Fund
-
-MIN_YEARS_TO_RETIREMENT = 5
-RETIREMENT_AGE          = 60
+from service.micro_savings.app.models.periods import KPeriod
+from service.micro_savings.app.models.returns import ReturnResponse, SavingsByDate
+from service.micro_savings.app.models.transaction import FilteredTransaction
+from service.micro_savings.app.transaction_engine.filter_processor.qpk_service import (
+    sum_remanents_for_k_period,
+)
+from service.micro_savings.app.transaction_engine.tax_processor.tax_service import (
+    compute_nps_tax_benefit,
+)
+from service.micro_savings.app.utils.settings import settings
 
 
 def compute_future_value(principal: float, rate: float, years: int) -> float:
@@ -32,7 +31,9 @@ def compute_future_value(principal: float, rate: float, years: int) -> float:
     return round(principal * ((1 + rate) ** years), 2)
 
 
-def adjust_for_inflation(nominal_value: float, inflation_rate_pct: float, years: int) -> float:
+def adjust_for_inflation(
+        nominal_value: float, inflation_rate_pct: float, years: int
+) -> float:
     """
     Deflate a nominal future value to today's purchasing power.
 
@@ -58,17 +59,17 @@ def _years_to_retirement(age: int) -> int:
         age=29  → 60-29 = 31 years
         age=57  → max(60-57, 5) = 5 years
     """
-    return max(RETIREMENT_AGE - age, MIN_YEARS_TO_RETIREMENT)
+    return max(settings.RETIREMENT_AGE - age, settings.MIN_YEARS_TO_RETIREMENT)
 
 
 def compute_returns(
-    transactions:  List[FilteredTransaction],
-    k_periods:     List[KPeriod],
-    age:           int,
-    wage:          float,
-    inflation:     float,
-    rate:          float,
-    include_tax:   bool = False,
+        transactions: List[FilteredTransaction],
+        k_periods: List[KPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
+        rate: float,
+        include_tax: bool = False,
 ) -> ReturnResponse:
     """
     Core return calculation engine shared by both NPS and Index Fund endpoints.
@@ -93,7 +94,7 @@ def compute_returns(
     """
     years = _years_to_retirement(age)
 
-    total_amount  = round(sum(tx.amount  for tx in transactions), 2)
+    total_amount = round(sum(tx.amount for tx in transactions), 2)
     total_ceiling = round(sum(tx.ceiling for tx in transactions), 2)
 
     savings_by_dates: List[SavingsByDate] = []
@@ -102,23 +103,25 @@ def compute_returns(
         period_remanent = sum_remanents_for_k_period(transactions, k)
 
         future_value = compute_future_value(period_remanent, rate, years)
-        profit       = round(future_value - period_remanent, 2)
+        profit = round(future_value - period_remanent, 2)
 
         # Inflation-adjusted profit (real purchasing power gain)
-        real_fv          = adjust_for_inflation(future_value, inflation, years)
-        real_profit      = round(real_fv - period_remanent, 2)
+        real_fv = adjust_for_inflation(future_value, inflation, years)
+        real_profit = round(real_fv - period_remanent, 2)
 
         tax_benefit = 0.0
         if include_tax:
             tax_benefit = compute_nps_tax_benefit(period_remanent, wage)
 
-        savings_by_dates.append(SavingsByDate(
-            start=k.start,
-            end=k.end,
-            amount=period_remanent,
-            profit=profit,
-            taxBenefit=tax_benefit,
-        ))
+        savings_by_dates.append(
+            SavingsByDate(
+                start=k.start,
+                end=k.end,
+                amount=period_remanent,
+                profit=profit,
+                taxBenefit=tax_benefit,
+            )
+        )
 
     return ReturnResponse(
         totalTransactionAmount=total_amount,
@@ -127,13 +130,31 @@ def compute_returns(
     )
 
 
-def compute_nps_returns(transactions, k_periods, age, wage, inflation) -> ReturnResponse:
+def compute_nps_returns(
+        transactions, k_periods, age, wage, inflation
+) -> ReturnResponse:
     """Entry point for NPS returns — uses NPS rate and includes tax benefit."""
-    return compute_returns(transactions, k_periods, age, wage, inflation,
-                           rate=NPS_RATE, include_tax=True)
+    return compute_returns(
+        transactions,
+        k_periods,
+        age,
+        wage,
+        inflation,
+        rate=settings.NPS_RATE,
+        include_tax=True,
+    )
 
 
-def compute_index_returns(transactions, k_periods, age, wage, inflation) -> ReturnResponse:
+def compute_index_returns(
+        transactions, k_periods, age, wage, inflation
+) -> ReturnResponse:
     """Entry point for Index Fund returns — uses index rate, no tax benefit."""
-    return compute_returns(transactions, k_periods, age, wage, inflation,
-                           rate=INDEX_RATE, include_tax=False)
+    return compute_returns(
+        transactions,
+        k_periods,
+        age,
+        wage,
+        inflation,
+        rate=settings.INDEX_RATE,
+        include_tax=False,
+    )

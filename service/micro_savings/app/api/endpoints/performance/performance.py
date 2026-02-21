@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from service.micro_savings.app.api.endpoints.performance.performance_utils import get_performance_metrics
+
+from service.tests.micro_savings.performance_utils import get_performance_metrics
 
 router = APIRouter()
 

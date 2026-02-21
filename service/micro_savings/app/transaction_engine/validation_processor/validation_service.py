@@ -1,11 +1,17 @@
 from typing import List, Tuple
-from service.micro_savings.app.api.endpoints.transaction.transaction import ParsedTransaction, ValidatedTransaction, InvalidTransaction
-from service.micro_savings.app.api.endpoints.ceiling.ceiling_service import compute_ceiling
+
+from service.micro_savings.app.models.transaction import (
+    ParsedTransaction,
+    ValidatedTransaction,
+    InvalidTransaction,
+)
+from service.micro_savings.app.transaction_engine.ceiling_processor.ceiling_service import (
+    compute_ceiling,
+)
 
 
 def validate_transactions(
-    transactions: List[ParsedTransaction],
-    wage: float
+        transactions: List[ParsedTransaction], wage: float
 ) -> Tuple[List[ValidatedTransaction], List[InvalidTransaction]]:
     """
     Run all validation rules against a list of parsed transactions.
@@ -19,8 +25,8 @@ def validate_transactions(
     Returns:
         (valid_list, invalid_list)
     """
-    valid:   List[ValidatedTransaction] = []
-    invalid: List[InvalidTransaction]   = []
+    valid: List[ValidatedTransaction] = []
+    invalid: List[InvalidTransaction] = []
 
     # Pre-scan: collect all dates to detect duplicates
     seen_dates = {}
@@ -33,21 +39,21 @@ def validate_transactions(
         reason = _check(tx, seen_dates, already_flagged_dates)
 
         if reason:
-            invalid.append(InvalidTransaction(
-                date=tx.date,
-                amount=tx.amount,
-                message=reason
-            ))
+            invalid.append(
+                InvalidTransaction(date=tx.date, amount=tx.amount, message=reason)
+            )
             # Mark date as flagged so the duplicate pair is also caught
             if seen_dates.get(tx.date, 0) > 1:
                 already_flagged_dates.add(tx.date)
         else:
-            valid.append(ValidatedTransaction(
-                date=tx.date,
-                amount=tx.amount,
-                ceiling=tx.ceiling,
-                remanent=tx.remanent,
-            ))
+            valid.append(
+                ValidatedTransaction(
+                    date=tx.date,
+                    amount=tx.amount,
+                    ceiling=tx.ceiling,
+                    remanent=tx.remanent,
+                )
+            )
 
     return valid, invalid
 

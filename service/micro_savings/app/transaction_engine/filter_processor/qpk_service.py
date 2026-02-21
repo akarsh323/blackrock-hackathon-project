@@ -1,17 +1,25 @@
 from typing import List, Tuple
-from service.micro_savings.app.api.endpoints.transaction.transaction import (
-    ValidatedTransaction, FilteredTransaction,
-    FilteredInvalidTransaction, AppliedQ, AppliedP
+
+from service.micro_savings.app.models.periods import (
+    QPeriod,
+    PPeriod,
+    KPeriod,
 )
-from service.micro_savings.app.api.endpoints.periods.periods import QPeriod, PPeriod, KPeriod
-from service.micro_savings.app.api.endpoints.date.date_utils import is_in_period, get_latest_start
+from service.micro_savings.app.models.transaction import (
+    ValidatedTransaction,
+    FilteredTransaction,
+    FilteredInvalidTransaction,
+    AppliedQ,
+    AppliedP,
+)
+from service.micro_savings.app.utils.date_utils import is_in_period, get_latest_start
 
 
 def apply_qpk(
-    transactions: List[ValidatedTransaction],
-    q_periods: List[QPeriod],
-    p_periods: List[PPeriod],
-    k_periods: List[KPeriod],
+        transactions: List[ValidatedTransaction],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        k_periods: List[KPeriod],
 ) -> Tuple[List[FilteredTransaction], List[FilteredInvalidTransaction]]:
     """
     Apply Q, P, and K rules to each validated transaction.
@@ -26,18 +34,18 @@ def apply_qpk(
     Returns:
         (valid_filtered, invalid_filtered)
     """
-    valid:   List[FilteredTransaction]        = []
+    valid: List[FilteredTransaction] = []
     invalid: List[FilteredInvalidTransaction] = []
 
     for tx in transactions:
         result = _apply_rules_to_transaction(tx, q_periods, p_periods, k_periods)
 
         if not result.inKPeriod:
-            invalid.append(FilteredInvalidTransaction(
-                date=tx.date,
-                amount=tx.amount,
-                message="Not within any K period"
-            ))
+            invalid.append(
+                FilteredInvalidTransaction(
+                    date=tx.date, amount=tx.amount, message="Not within any K period"
+                )
+            )
         else:
             valid.append(result)
 
@@ -45,16 +53,16 @@ def apply_qpk(
 
 
 def _apply_rules_to_transaction(
-    tx: ValidatedTransaction,
-    q_periods: List[QPeriod],
-    p_periods: List[PPeriod],
-    k_periods: List[KPeriod],
+        tx: ValidatedTransaction,
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        k_periods: List[KPeriod],
 ) -> FilteredTransaction:
     """Process all three rules for a single transaction."""
 
-    remanent   = tx.remanent
-    applied_q  = None
-    applied_p  = []
+    remanent = tx.remanent
+    applied_q = None
+    applied_p = []
 
     # ── Step 1: Q Rule ────────────────────────────────────────────────────────
     # Find all Q periods that contain this transaction date
@@ -62,16 +70,16 @@ def _apply_rules_to_transaction(
 
     if matching_q:
         # If multiple Q periods match, the one with the LATEST start date wins
-        winning_q  = get_latest_start(matching_q)
-        remanent   = winning_q.fixed          # Hard override
-        applied_q  = AppliedQ(fixed=winning_q.fixed)
+        winning_q = get_latest_start(matching_q)
+        remanent = winning_q.fixed  # Hard override
+        applied_q = AppliedQ(fixed=winning_q.fixed)
 
     # ── Step 2: P Rule ────────────────────────────────────────────────────────
     # Find ALL P periods that contain this date, sum all extras
     matching_p = [p for p in p_periods if is_in_period(tx.date, p.start, p.end)]
 
     for p in matching_p:
-        remanent  += p.extra                  # Stacking: add each one
+        remanent += p.extra  # Stacking: add each one
         applied_p.append(AppliedP(extra=p.extra))
 
     # ── Step 3: K Rule ────────────────────────────────────────────────────────
@@ -90,8 +98,7 @@ def _apply_rules_to_transaction(
 
 
 def sum_remanents_for_k_period(
-    transactions: List[FilteredTransaction],
-    k: KPeriod
+        transactions: List[FilteredTransaction], k: KPeriod
 ) -> float:
     """
     Sum all remanents for transactions that fall within a specific K period.

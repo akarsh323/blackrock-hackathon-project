@@ -1,6 +1,6 @@
 import math
 
-from service.micro_savings.app.api.endpoints.transaction.transaction import (
+from service.micro_savings.app.models.transaction import (
     RawTransaction,
     ParsedTransaction,
 )
@@ -29,9 +29,6 @@ def compute_remanent(amount: float, ceiling: float) -> float:
         amount=300, ceiling=300 → remanent=0  (nothing to invest)
     """
     return round(ceiling - amount, 2)
-
-
-# Test
 
 
 def parse_single(tx: RawTransaction) -> ParsedTransaction:

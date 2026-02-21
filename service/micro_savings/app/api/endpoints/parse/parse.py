@@ -1,7 +1,14 @@
-from fastapi import APIRouter
 from typing import List
-from service.micro_savings.app.api.endpoints.transaction.transaction import RawTransaction, ParsedTransaction
-from service.micro_savings.app.api.endpoints.ceiling.ceiling_service import parse_all
+
+from fastapi import APIRouter
+
+from service.micro_savings.app.models.transaction import (
+    RawTransaction,
+    ParsedTransaction,
+)
+from service.micro_savings.app.transaction_engine.ceiling_processor.ceiling_service import (
+    parse_all,
+)
 
 router = APIRouter()
 
