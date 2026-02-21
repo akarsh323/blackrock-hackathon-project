@@ -1,8 +1,9 @@
-import time
-import threading
-import psutil
 import os
+import threading
+import time
 from datetime import timedelta
+
+import psutil
 
 _start_time = time.time()
 
