@@ -20,6 +20,6 @@ class Settings(BaseSettings):
     INDEX_RATE: float = 0.1449
     MIN_YEARS_TO_RETIREMENT: int = 5
     RETIREMENT_AGE: int = 60
- 
+
 
 settings = Settings()

@@ -16,10 +16,10 @@ from service.micro_savings.app.utils.date_utils import is_in_period, get_latest_
 
 
 def apply_qpk(
-        transactions: List[ValidatedTransaction],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        k_periods: List[KPeriod],
+    transactions: List[ValidatedTransaction],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    k_periods: List[KPeriod],
 ) -> Tuple[List[FilteredTransaction], List[FilteredInvalidTransaction]]:
     """
     Apply Q, P, and K rules to each validated transaction.
@@ -53,10 +53,10 @@ def apply_qpk(
 
 
 def _apply_rules_to_transaction(
-        tx: ValidatedTransaction,
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        k_periods: List[KPeriod],
+    tx: ValidatedTransaction,
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    k_periods: List[KPeriod],
 ) -> FilteredTransaction:
     """Process all three rules for a single transaction."""
 
@@ -98,7 +98,7 @@ def _apply_rules_to_transaction(
 
 
 def sum_remanents_for_k_period(
-        transactions: List[FilteredTransaction], k: KPeriod
+    transactions: List[FilteredTransaction], k: KPeriod
 ) -> float:
     """
     Sum all remanents for transactions that fall within a specific K period.

@@ -11,7 +11,7 @@ from service.micro_savings.app.transaction_engine.ceiling_processor.ceiling_serv
 
 
 def validate_transactions(
-        transactions: List[ParsedTransaction], wage: float
+    transactions: List[ParsedTransaction], wage: float
 ) -> Tuple[List[ValidatedTransaction], List[InvalidTransaction]]:
     """
     Run all validation rules against a list of parsed transactions.

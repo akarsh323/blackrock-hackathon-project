@@ -32,7 +32,7 @@ def compute_future_value(principal: float, rate: float, years: int) -> float:
 
 
 def adjust_for_inflation(
-        nominal_value: float, inflation_rate_pct: float, years: int
+    nominal_value: float, inflation_rate_pct: float, years: int
 ) -> float:
     """
     Deflate a nominal future value to today's purchasing power.
@@ -63,13 +63,13 @@ def _years_to_retirement(age: int) -> int:
 
 
 def compute_returns(
-        transactions: List[FilteredTransaction],
-        k_periods: List[KPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
-        rate: float,
-        include_tax: bool = False,
+    transactions: List[FilteredTransaction],
+    k_periods: List[KPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
+    rate: float,
+    include_tax: bool = False,
 ) -> ReturnResponse:
     """
     Core return calculation engine shared by both NPS and Index Fund endpoints.
@@ -131,7 +131,7 @@ def compute_returns(
 
 
 def compute_nps_returns(
-        transactions, k_periods, age, wage, inflation
+    transactions, k_periods, age, wage, inflation
 ) -> ReturnResponse:
     """Entry point for NPS returns — uses NPS rate and includes tax benefit."""
     return compute_returns(
@@ -146,7 +146,7 @@ def compute_nps_returns(
 
 
 def compute_index_returns(
-        transactions, k_periods, age, wage, inflation
+    transactions, k_periods, age, wage, inflation
 ) -> ReturnResponse:
     """Entry point for Index Fund returns — uses index rate, no tax benefit."""
     return compute_returns(

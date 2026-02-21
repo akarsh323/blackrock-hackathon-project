@@ -2,12 +2,13 @@ from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime
 
-
 # ── Raw input ─────────────────────────────────────────────────────────────────
+
 
 class RawTransaction(BaseModel):
     """A transaction exactly as received from the user."""
-    date: str           # "2023-10-12 20:15:30"
+
+    date: str  # "2023-10-12 20:15:30"
     amount: float
 
     @validator("date")
@@ -21,8 +22,10 @@ class RawTransaction(BaseModel):
 
 # ── Parsed (ceiling + remanent added) ─────────────────────────────────────────
 
+
 class ParsedTransaction(BaseModel):
     """Transaction enriched with ceiling and remanent values."""
+
     date: str
     amount: float
     ceiling: float
@@ -31,8 +34,10 @@ class ParsedTransaction(BaseModel):
 
 # ── After validation step ──────────────────────────────────────────────────────
 
+
 class ValidatedTransaction(BaseModel):
     """Transaction that passed all validation checks."""
+
     date: str
     amount: float
     ceiling: float
@@ -41,6 +46,7 @@ class ValidatedTransaction(BaseModel):
 
 class InvalidTransaction(BaseModel):
     """Transaction that failed validation, with reason."""
+
     date: str
     amount: float
     message: str
@@ -53,6 +59,7 @@ class ValidationResult(BaseModel):
 
 # ── After filter step (Q/P/K applied) ─────────────────────────────────────────
 
+
 class AppliedQ(BaseModel):
     fixed: float
 
@@ -63,6 +70,7 @@ class AppliedP(BaseModel):
 
 class FilteredTransaction(BaseModel):
     """Transaction after Q/P rules applied and K period checked."""
+
     date: str
     amount: float
     ceiling: float

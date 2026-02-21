@@ -22,9 +22,9 @@ def is_in_period(date_str: str, start_str: str, end_str: str) -> bool:
         is_in_period("2023-07-15 14:00:00", "2023-07-01 00:00:00", "2023-07-31 23:59:59")
         → True
     """
-    date  = parse_dt(date_str)
+    date = parse_dt(date_str)
     start = parse_dt(start_str)
-    end   = parse_dt(end_str)
+    end = parse_dt(end_str)
     return start <= date <= end
 
 

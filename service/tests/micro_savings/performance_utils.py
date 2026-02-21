@@ -4,7 +4,6 @@ import psutil
 import os
 from datetime import timedelta
 
-
 _start_time = time.time()
 
 
@@ -44,7 +43,7 @@ def get_performance_metrics() -> dict:
         }
     """
     return {
-        "time":    get_uptime_str(),
-        "memory":  get_memory_usage_mb(),
+        "time": get_uptime_str(),
+        "memory": get_memory_usage_mb(),
         "threads": get_thread_count(),
     }
