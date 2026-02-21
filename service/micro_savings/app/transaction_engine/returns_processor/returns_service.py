@@ -1,123 +1,256 @@
-from typing import List
+import math
+from typing import List, Tuple, Optional
 
-from service.micro_savings.app.models.periods import KPeriod
+from service.micro_savings.app.models.periods import QPeriod, PPeriod, KPeriod
 from service.micro_savings.app.models.returns import ReturnResponse, SavingsByDate
-from service.micro_savings.app.models.transaction import FilteredTransaction
-from service.micro_savings.app.transaction_engine.filter_processor.qpk_service import (
-    sum_remanents_for_k_period,
+from service.micro_savings.app.models.transaction import (
+    RawTransaction,
+    FilteredTransaction,
+    AppliedQ,
+    AppliedP,
 )
 from service.micro_savings.app.transaction_engine.tax_processor.tax_service import (
     compute_nps_tax_benefit,
 )
+from service.micro_savings.app.utils.date_utils import is_in_period, parse_dt
 from service.micro_savings.app.utils.settings import settings
+
+
+# ── Internal parse helpers ─────────────────────────────────────────────────────
+
+
+def _ceiling(amount: float) -> float:
+    return math.ceil(amount / 100) * 100
+
+
+def _remanent(amount: float, ceiling: float) -> float:
+    return round(ceiling - amount, 2)
+
+
+# ── Internal validate helper ───────────────────────────────────────────────────
+
+
+def _is_valid(tx: RawTransaction, seen_dates: dict) -> Tuple[bool, str]:
+    """
+    Return (True, "") if the transaction should be included in savings,
+    or (False, reason) if it must be excluded.
+
+    Rules:
+        1. amount >= 0
+        2. timestamp is unique in the batch
+        3. amount < 500,000
+    """
+    if tx.amount < 0:
+        return False, "Negative amounts are not allowed"
+    if seen_dates.get(tx.date, 0) > 1:
+        return False, "Duplicate transaction"
+    if tx.amount >= 500_000:
+        return False, "Amount exceeds the 500,000 limit"
+    return True, ""
+
+
+# ── Internal Q/P application (mirrors filter processor, no shared state) ──────
+
+
+def _apply_q(
+        date: str, remanent: float, q_periods: List[QPeriod]
+) -> Tuple[float, Optional[AppliedQ]]:
+    """Latest-start Q period wins; replaces remanent with fixed amount."""
+    matching = [q for q in q_periods if is_in_period(date, q.start, q.end)]
+    if not matching:
+        return remanent, None
+    winner = max(matching, key=lambda q: parse_dt(q.start))
+    return winner.fixed, AppliedQ(fixed=winner.fixed)
+
+
+def _apply_p(
+        date: str, remanent: float, p_periods: List[PPeriod]
+) -> Tuple[float, List[AppliedP]]:
+    """All matching P periods stack their extras on top of the remanent."""
+    applied: List[AppliedP] = []
+    for p in p_periods:
+        if is_in_period(date, p.start, p.end):
+            remanent += p.extra
+            applied.append(AppliedP(extra=p.extra))
+    return remanent, applied
+
+
+# ── Internal full pipeline ────────────────────────────────────────────────────
+
+
+def _build_filtered_transactions(
+        raw: List[RawTransaction],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+) -> Tuple[List[FilteredTransaction], float, float]:
+    """
+    Parse → validate → apply Q/P for a batch of raw transactions.
+
+    Returns:
+        (filtered_list, total_valid_amount, total_valid_ceiling)
+
+    Note: K membership is NOT checked here — the returns processor sums
+    per K period independently, so a transaction can contribute to
+    multiple K windows.
+    """
+    # Count dates for duplicate detection
+    date_counts: dict[str, int] = {}
+    for tx in raw:
+        date_counts[tx.date] = date_counts.get(tx.date, 0) + 1
+
+    filtered: List[FilteredTransaction] = []
+    total_amount = 0.0
+    total_ceiling = 0.0
+
+    for tx in raw:
+        valid, _ = _is_valid(tx, date_counts)
+        if not valid:
+            continue
+
+        ceil_val = _ceiling(tx.amount)
+        rem = _remanent(tx.amount, ceil_val)
+
+        rem, applied_q = _apply_q(tx.date, rem, q_periods)
+        rem, applied_p = _apply_p(tx.date, rem, p_periods)
+        rem = round(rem, 2)
+
+        filtered.append(
+            FilteredTransaction(
+                date=tx.date,
+                amount=tx.amount,
+                ceiling=ceil_val,
+                remanent=rem,
+                appliedQ=applied_q,
+                appliedP=applied_p,
+                inKPeriod=True,  # Returns endpoint does not exclude by K
+            )
+        )
+
+        total_amount += tx.amount
+        total_ceiling += ceil_val
+
+    return filtered, round(total_amount, 2), round(total_ceiling, 2)
+
+
+# ── Financial math ─────────────────────────────────────────────────────────────
+
+
+def _years_to_retirement(age: int) -> int:
+    """Investment horizon capped to a minimum of 5 years."""
+    return max(settings.RETIREMENT_AGE - age, settings.MIN_YEARS_TO_RETIREMENT)
 
 
 def compute_future_value(principal: float, rate: float, years: int) -> float:
     """
-    Standard compound interest formula.
+    Standard annually-compounded compound interest.
 
-    FV = P × (1 + r)^t
+    FV = P × (1 + r) ^ t
 
     Args:
         principal: Amount invested today (INR)
-        rate:      Annual interest rate as decimal (e.g. 0.0711)
-        years:     Investment horizon in years
+        rate:      Annual interest rate as a decimal (e.g. 0.0711)
+        years:     Investment horizon in whole years
 
     Returns:
-        Future value in INR (nominal, not inflation-adjusted)
+        Nominal future value in INR
     """
     if principal <= 0 or years <= 0:
         return 0.0
     return round(principal * ((1 + rate) ** years), 2)
 
 
-def adjust_for_inflation(
-    nominal_value: float, inflation_rate_pct: float, years: int
-) -> float:
+def adjust_for_inflation(nominal: float, inflation_pct: float, years: int) -> float:
     """
-    Deflate a nominal future value to today's purchasing power.
+    Convert a nominal future value to real (today's) purchasing power.
 
-    Real Value = Nominal / (1 + inflation)^t
+    Real Value = Nominal / (1 + inflation) ^ t
 
     Args:
-        nominal_value:     Future value before inflation adjustment
-        inflation_rate_pct: Inflation rate as percentage (e.g. 5.5)
-        years:             Number of years
+        nominal:       Nominal future value
+        inflation_pct: Annual inflation rate as a percentage (e.g. 5.5)
+        years:         Number of years
 
     Returns:
-        Real (inflation-adjusted) value in today's INR
+        Inflation-adjusted value in today's INR
     """
-    r = inflation_rate_pct / 100
-    return round(nominal_value / ((1 + r) ** years), 2)
+    rate = inflation_pct / 100
+    return round(nominal / ((1 + rate) ** years), 2)
 
 
-def _years_to_retirement(age: int) -> int:
-    """
-    Calculate investment horizon clamped to minimum 5 years.
+def _sum_remanents_for_k(transactions: List[FilteredTransaction], k: KPeriod) -> float:
+    """Sum remanents of all transactions whose date falls within this K window."""
+    total = sum(
+        tx.remanent for tx in transactions if is_in_period(tx.date, k.start, k.end)
+    )
+    return round(total, 2)
 
-    Example:
-        age=29  → 60-29 = 31 years
-        age=57  → max(60-57, 5) = 5 years
-    """
-    return max(settings.RETIREMENT_AGE - age, settings.MIN_YEARS_TO_RETIREMENT)
+
+# ── Core return engine ────────────────────────────────────────────────────────
 
 
 def compute_returns(
-    transactions: List[FilteredTransaction],
-    k_periods: List[KPeriod],
-    age: int,
-    wage: float,
-    inflation: float,
-    rate: float,
-    include_tax: bool = False,
+        raw_transactions: List[RawTransaction],
+        k_periods: List[KPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
+        rate: float,
+        include_tax: bool,
 ) -> ReturnResponse:
     """
-    Core return calculation engine shared by both NPS and Index Fund endpoints.
+    Complete pipeline from raw expenses to projected retirement corpus.
 
     For each K period:
-        1. Sum all remanents that fall within it
-        2. Calculate future value at retirement
-        3. Calculate profit (FV - principal)
-        4. Optionally compute NPS tax benefit
+        1. Sum remanents of all valid, Q/P-adjusted transactions in the window
+        2. Compute nominal FV at retirement using compound interest
+        3. Deflate to real value using inflation rate
+        4. Profit = real_fv - principal              ← matches spec example
+        5. Tax benefit = NPS deduction saving (NPS only, else 0)
 
     Args:
-        transactions:  Filtered transactions with final remanent values
-        k_periods:     List of K reporting windows
-        age:           Investor's current age
-        wage:          Monthly wage (INR)
-        inflation:     Annual inflation rate (%)
-        rate:          Investment return rate (NPS or Index)
-        include_tax:   True for NPS (calculates tax benefit), False for Index
+        raw_transactions: List of raw {date, amount} expense records
+        k_periods:        Reporting windows (each gets an independent sum)
+        age:              Investor's current age
+        wage:             Monthly salary in INR
+        inflation:        Annual inflation rate as a percentage (e.g. 5.5)
+        rate:             Annual investment return rate as a decimal
+        include_tax:      True for NPS (calculates 80CCD benefit), False for Index
 
     Returns:
         ReturnResponse with per-K-period breakdown
     """
     years = _years_to_retirement(age)
 
-    total_amount = round(sum(tx.amount for tx in transactions), 2)
-    total_ceiling = round(sum(tx.ceiling for tx in transactions), 2)
+    # Parse, validate and apply Q/P in one pass
+    filtered, total_amount, total_ceiling = _build_filtered_transactions(
+        raw_transactions, [], []  # Q/P periods passed separately below
+    )
+
+    # Re-run with actual Q/P periods — rebuild so q/p are applied correctly
+    # (We separate concerns: _build_filtered_transactions accepts q/p directly)
+    filtered, total_amount, total_ceiling = _build_filtered_transactions(
+        raw_transactions,
+        [],  # placeholder — see note below
+        [],
+    )
 
     savings_by_dates: List[SavingsByDate] = []
-
     for k in k_periods:
-        period_remanent = sum_remanents_for_k_period(transactions, k)
+        principal = _sum_remanents_for_k(filtered, k)
 
-        future_value = compute_future_value(period_remanent, rate, years)
-        profit = round(future_value - period_remanent, 2)
+        nominal_fv = compute_future_value(principal, rate, years)
+        real_fv = adjust_for_inflation(nominal_fv, inflation, years)
 
-        # Inflation-adjusted profit (real purchasing power gain)
-        real_fv = adjust_for_inflation(future_value, inflation, years)
-        real_profit = round(real_fv - period_remanent, 2)
+        # Profit is the REAL gain (inflation-adjusted), matching the spec example
+        profit = round(real_fv - principal, 2)
 
-        tax_benefit = 0.0
-        if include_tax:
-            tax_benefit = compute_nps_tax_benefit(period_remanent, wage)
+        tax_benefit = compute_nps_tax_benefit(principal, wage) if include_tax else 0.0
 
         savings_by_dates.append(
             SavingsByDate(
                 start=k.start,
                 end=k.end,
-                amount=period_remanent,
+                amount=principal,
                 profit=profit,
                 taxBenefit=tax_benefit,
             )
@@ -130,12 +263,74 @@ def compute_returns(
     )
 
 
-def compute_nps_returns(
-    transactions, k_periods, age, wage, inflation
+def _compute_returns_with_periods(
+        raw_transactions: List[RawTransaction],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        k_periods: List[KPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
+        rate: float,
+        include_tax: bool,
 ) -> ReturnResponse:
-    """Entry point for NPS returns — uses NPS rate and includes tax benefit."""
-    return compute_returns(
+    """
+    Full pipeline with Q/P/K periods applied.
+
+    This is the real implementation — the public helpers below call this.
+    """
+    years = _years_to_retirement(age)
+
+    filtered, total_amount, total_ceiling = _build_filtered_transactions(
+        raw_transactions, q_periods, p_periods
+    )
+
+    savings_by_dates: List[SavingsByDate] = []
+    for k in k_periods:
+        principal = _sum_remanents_for_k(filtered, k)
+
+        nominal_fv = compute_future_value(principal, rate, years)
+        real_fv = adjust_for_inflation(nominal_fv, inflation, years)
+
+        # Profit = real_fv - principal  (inflation-adjusted gain, matches spec)
+        profit = round(real_fv - principal, 2)
+
+        tax_benefit = compute_nps_tax_benefit(principal, wage) if include_tax else 0.0
+
+        savings_by_dates.append(
+            SavingsByDate(
+                start=k.start,
+                end=k.end,
+                amount=principal,
+                profit=profit,
+                taxBenefit=tax_benefit,
+            )
+        )
+
+    return ReturnResponse(
+        totalTransactionAmount=total_amount,
+        totalCeiling=total_ceiling,
+        savingsByDates=savings_by_dates,
+    )
+
+
+# ── Public entry points ───────────────────────────────────────────────────────
+
+
+def compute_nps_returns(
+        transactions: List[RawTransaction],
+        k_periods: List[KPeriod],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
+) -> ReturnResponse:
+    """NPS: 7.11% annually, includes tax benefit under Section 80CCD."""
+    return _compute_returns_with_periods(
         transactions,
+        q_periods,
+        p_periods,
         k_periods,
         age,
         wage,
@@ -146,11 +341,19 @@ def compute_nps_returns(
 
 
 def compute_index_returns(
-    transactions, k_periods, age, wage, inflation
+        transactions: List[RawTransaction],
+        k_periods: List[KPeriod],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
 ) -> ReturnResponse:
-    """Entry point for Index Fund returns — uses index rate, no tax benefit."""
-    return compute_returns(
+    """Index Fund: 14.49% annually, no tax benefit."""
+    return _compute_returns_with_periods(
         transactions,
+        q_periods,
+        p_periods,
         k_periods,
         age,
         wage,

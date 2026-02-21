@@ -7,27 +7,35 @@ from service.micro_savings.app.models.periods import (
     PPeriod,
     KPeriod,
 )
-from service.micro_savings.app.models.transaction import ParsedTransaction
+from service.micro_savings.app.models.transaction import RawTransaction
 
 
 class ReturnRequest(BaseModel):
     """
     Full input required to calculate retirement returns.
-    Includes user profile, all period rules, and parsed transactions.
+
+    Accepts raw transactions (date + amount only) because the returns
+    endpoint owns the complete pipeline:
+        parse → validate → apply Q/P/K → compute returns per K period
+
+    All period rules (q, p, k) are applied internally; callers do not
+    need to pre-process transactions.
     """
 
-    age: int  # Current age of investor
+    age: int
     wage: float  # Monthly wage in INR
-    inflation: float = 5.5  # Annual inflation rate (%)
+    inflation: float = (
+        5.5  # Annual inflation rate as a plain percentage (e.g. 5.5 means 5.5%)
+    )
     q: List[QPeriod] = []
     p: List[PPeriod] = []
-    k: List[KPeriod]  # At least one K period required
-    transactions: List[ParsedTransaction]
+    k: List[KPeriod]  # At least one K period required for grouping
+    transactions: List[RawTransaction]
 
     @validator("age")
     def validate_age(cls, v):
         if v >= 60:
-            raise ValueError("Age must be less than 60 (retirement age)")
+            raise ValueError("Age must be less than 60 (retirement age is 60)")
         if v < 18:
             raise ValueError("Age must be at least 18")
         return v
@@ -42,16 +50,16 @@ class ReturnRequest(BaseModel):
 class SavingsByDate(BaseModel):
     """Savings summary and projected returns for a single K period."""
 
-    start: str  # K period start
-    end: str  # K period end
-    amount: float  # Total remanent saved in this period
-    profit: float  # Projected profit at retirement (nominal)
-    taxBenefit: float  # Tax saved due to NPS deduction (NPS only)
+    start: str  # K period start timestamp
+    end: str  # K period end timestamp
+    amount: float  # Total remanent saved within this K period
+    profit: float  # Inflation-adjusted profit at retirement (real_fv - principal)
+    taxBenefit: float  # Tax saved via NPS deduction (always 0.0 for Index Fund)
 
 
 class ReturnResponse(BaseModel):
     """Full return calculation response."""
 
-    totalTransactionAmount: float  # Sum of all raw expense amounts
-    totalCeiling: float  # Sum of all ceiling values
-    savingsByDates: List[SavingsByDate]  # Per-K-period breakdown
+    totalTransactionAmount: float  # Sum of valid raw expense amounts
+    totalCeiling: float  # Sum of ceiling values for valid transactions
+    savingsByDates: List[SavingsByDate]
