@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: micro_savings
+  IMAGE_NAME: blk-hacking-ind-akarsh
 
 jobs:
   build-and-push:

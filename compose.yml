@@ -8,8 +8,8 @@ services:
       args:
         DIR_NAME: micro_savings
         GROUPS: micro_savings,dev
-    image: micro_savings:latest
-    container_name: micro_savings
+    image: blk-hacking-ind-akarsh:latest
+    container_name: blk-hacking-ind-akarsh
     volumes:
       - ./service/micro_savings:/app/service/micro_savings
       - ./service/tests:/app/service/tests
