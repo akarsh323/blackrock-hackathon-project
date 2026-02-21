@@ -11,7 +11,7 @@ from service.micro_savings.app.transaction_engine.ceiling_processor.ceiling_serv
 
 
 def validate_transactions(
-    transactions: List[ParsedTransaction], wage: float
+        transactions: List[ParsedTransaction], wage: float
 ) -> Tuple[List[ValidatedTransaction], List[InvalidTransaction]]:
     """
     Run all validation rules against a list of parsed transactions.
@@ -42,7 +42,6 @@ def validate_transactions(
             invalid.append(
                 InvalidTransaction(date=tx.date, amount=tx.amount, message=reason)
             )
-            # Mark date as flagged so the duplicate pair is also caught
             if seen_dates.get(tx.date, 0) > 1:
                 already_flagged_dates.add(tx.date)
         else:
