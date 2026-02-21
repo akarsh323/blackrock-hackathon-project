@@ -1,0 +1,27 @@
+services:
+  micro_savings:
+    platform: linux/amd64
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DIR_NAME: micro_savings
+        GROUPS: micro_savings,dev
+    image: micro_savings:latest
+    container_name: micro_savings
+    volumes:
+      - ./service/micro_savings:/app/service/micro_savings
+      - ./service/tests:/app/service/tests
+    ports:
+      - "8000:8000"
+    environment:
+      APP_DIR: micro_savings
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
