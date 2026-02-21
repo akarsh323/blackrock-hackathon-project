@@ -1,6 +1,8 @@
-from pydantic import BaseModel, validator
-from typing import Optional, List
 from datetime import datetime
+from typing import Optional, List
+
+from pydantic import BaseModel, validator
+
 
 # ── Raw input ─────────────────────────────────────────────────────────────────
 
@@ -8,7 +10,7 @@ from datetime import datetime
 class RawTransaction(BaseModel):
     """A transaction exactly as received from the user."""
 
-    date: str  # "2023-10-12 20:15:30"
+    date: str
     amount: float
 
     @validator("date")
@@ -49,6 +51,8 @@ class InvalidTransaction(BaseModel):
 
     date: str
     amount: float
+    ceiling: Optional[float] = None
+    remanent: Optional[float] = None
     message: str
 
 

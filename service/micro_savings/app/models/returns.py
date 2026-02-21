@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, validator
 
@@ -23,13 +23,11 @@ class ReturnRequest(BaseModel):
     """
 
     age: int
-    wage: float  # Monthly wage in INR
-    inflation: float = (
-        5.5  # Annual inflation rate as a plain percentage (e.g. 5.5 means 5.5%)
-    )
+    wage: float
+    inflation: float = 5.5
     q: List[QPeriod] = []
     p: List[PPeriod] = []
-    k: List[KPeriod]  # At least one K period required for grouping
+    k: List[KPeriod]
     transactions: List[RawTransaction]
 
     @validator("age")
@@ -48,18 +46,14 @@ class ReturnRequest(BaseModel):
 
 
 class SavingsByDate(BaseModel):
-    """Savings summary and projected returns for a single K period."""
-
-    start: str  # K period start timestamp
-    end: str  # K period end timestamp
-    amount: float  # Total remanent saved within this K period
-    profit: float  # Inflation-adjusted profit at retirement (real_fv - principal)
-    taxBenefit: float  # Tax saved via NPS deduction (always 0.0 for Index Fund)
+    start: str
+    end: str
+    amount: float
+    profit: float
+    taxBenefit: Optional[float] = None
 
 
 class ReturnResponse(BaseModel):
-    """Full return calculation response."""
-
-    totalTransactionAmount: float  # Sum of valid raw expense amounts
-    totalCeiling: float  # Sum of ceiling values for valid transactions
+    totalTransactionAmount: float
+    totalCeiling: float
     savingsByDates: List[SavingsByDate]

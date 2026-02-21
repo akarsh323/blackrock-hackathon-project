@@ -5,9 +5,6 @@ from service.micro_savings.app.models.transaction import (
     ValidatedTransaction,
     InvalidTransaction,
 )
-from service.micro_savings.app.transaction_engine.ceiling_processor.ceiling_service import (
-    compute_ceiling,
-)
 
 
 def validate_transactions(
@@ -15,20 +12,10 @@ def validate_transactions(
 ) -> Tuple[List[ValidatedTransaction], List[InvalidTransaction]]:
     """
     Run all validation rules against a list of parsed transactions.
-
-    Rules (in order):
-        1. Amount must be non-negative
-        2. No duplicate timestamps
-        3. Amount must be < 500,000
-        4. Ceiling value must match recomputed ceil(amount/100)*100
-
-    Returns:
-        (valid_list, invalid_list)
     """
     valid: List[ValidatedTransaction] = []
     invalid: List[InvalidTransaction] = []
 
-    # Pre-scan: collect all dates to detect duplicates
     seen_dates = {}
     for tx in transactions:
         seen_dates[tx.date] = seen_dates.get(tx.date, 0) + 1
@@ -40,8 +27,15 @@ def validate_transactions(
 
         if reason:
             invalid.append(
-                InvalidTransaction(date=tx.date, amount=tx.amount, message=reason)
+                InvalidTransaction(
+                    date=tx.date,
+                    amount=tx.amount,
+                    ceiling=tx.ceiling,
+                    remanent=tx.remanent,
+                    message=reason,
+                )
             )
+            # Prevent duplicate message spam for the same date
             if seen_dates.get(tx.date, 0) > 1:
                 already_flagged_dates.add(tx.date)
         else:
@@ -58,26 +52,17 @@ def validate_transactions(
 
 
 def _check(tx: ParsedTransaction, seen_dates: dict, already_flagged: set) -> str | None:
-    """
-    Returns a failure reason string if invalid, else None.
-    Checks are ordered: first match short-circuits.
-    """
-
-    # Rule 1: Negative amount
+    # Rule 1: Negative amounts are explicitly forbidden in the PDF specs
     if tx.amount < 0:
-        return "Amount cannot be negative"
+        return "Negative amounts are not allowed"
 
-    # Rule 2: Duplicate timestamp
+    # Rule 2: Multiple transactions at the exact same second are duplicates
     if seen_dates.get(tx.date, 0) > 1:
-        return "Duplicate timestamp detected"
+        return "Duplicate transaction"
 
-    # Rule 3: Exceeds maximum allowed transaction
+    # Rule 3: Amount cannot exceed constraints defined in the problem
     if tx.amount >= 500_000:
         return "Amount exceeds 500,000 limit"
 
-    # Rule 4: Ceiling mismatch (data integrity check)
-    expected_ceiling = compute_ceiling(tx.amount)
-    if abs(tx.ceiling - expected_ceiling) > 0.01:
-        return f"Ceiling mismatch: expected {expected_ceiling}, got {tx.ceiling}"
-
+    # Return None if it passes all checks
     return None
