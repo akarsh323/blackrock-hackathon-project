@@ -13,29 +13,16 @@ from service.micro_savings.app.transaction_engine.tax_processor.tax_service impo
     compute_nps_tax_benefit,
 )
 from service.micro_savings.app.utils.date_utils import is_in_period, parse_dt
-from service.micro_savings.app.utils.settings import settings
 
-
-def _ceiling(amount: float) -> float:
-    return math.ceil(amount / 100) * 100
-
-
-def _remanent(amount: float, ceiling: float) -> float:
-    return round(ceiling - amount, 2)
-
-
-def _is_valid(tx: RawTransaction, seen_dates: dict) -> Tuple[bool, str]:
-    if tx.amount < 0:
-        return False, "Negative amounts are not allowed"
-    if seen_dates.get(tx.date, 0) > 1:
-        return False, "Duplicate transaction"
-    if tx.amount >= 500_000:
-        return False, "Amount exceeds the 500,000 limit"
-    return True, ""
+# Using explicit constants directly based on the PDF
+NPS_RATE = 0.0711
+INDEX_RATE = 0.1449
+RETIREMENT_AGE = 60
+MIN_YEARS_TO_RETIREMENT = 5
 
 
 def _apply_q(
-    date: str, remanent: float, q_periods: List[QPeriod]
+        date: str, remanent: float, q_periods: List[QPeriod]
 ) -> Tuple[float, Optional[AppliedQ]]:
     matching = [q for q in q_periods if is_in_period(date, q.start, q.end)]
     if not matching:
@@ -45,7 +32,7 @@ def _apply_q(
 
 
 def _apply_p(
-    date: str, remanent: float, p_periods: List[PPeriod]
+        date: str, remanent: float, p_periods: List[PPeriod]
 ) -> Tuple[float, List[AppliedP]]:
     applied: List[AppliedP] = []
     for p in p_periods:
@@ -56,25 +43,27 @@ def _apply_p(
 
 
 def _build_filtered_transactions(
-    raw: List[RawTransaction],
-    q_periods: List[QPeriod],
-    p_periods: List[PPeriod],
+        raw: List[RawTransaction],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
 ) -> Tuple[List[FilteredTransaction], float, float]:
-    date_counts: dict[str, int] = {}
-    for tx in raw:
-        date_counts[tx.date] = date_counts.get(tx.date, 0) + 1
-
+    seen_dates = set()
     filtered: List[FilteredTransaction] = []
     total_amount = 0.0
     total_ceiling = 0.0
 
     for tx in raw:
-        valid, _ = _is_valid(tx, date_counts)
-        if not valid:
+        # 1. Reject constraint violations
+        if tx.amount < 0 or tx.amount >= 500_000:
             continue
 
-        ceil_val = _ceiling(tx.amount)
-        rem = _remanent(tx.amount, ceil_val)
+        # 2. Reject duplicate timestamps (keep only the FIRST occurrence)
+        if tx.date in seen_dates:
+            continue
+        seen_dates.add(tx.date)
+
+        ceil_val = math.ceil(tx.amount / 100) * 100
+        rem = round(ceil_val - tx.amount, 2)
 
         rem, applied_q = _apply_q(tx.date, rem, q_periods)
         rem, applied_p = _apply_p(tx.date, rem, p_periods)
@@ -99,18 +88,18 @@ def _build_filtered_transactions(
 
 
 def _years_to_retirement(age: int) -> int:
-    return max(settings.RETIREMENT_AGE - age, settings.MIN_YEARS_TO_RETIREMENT)
+    return max(RETIREMENT_AGE - age, MIN_YEARS_TO_RETIREMENT)
 
 
 def compute_future_value(principal: float, rate: float, years: int) -> float:
     if principal <= 0 or years <= 0:
         return 0.0
-    return round(principal * ((1 + rate) ** years), 2)
+    return principal * ((1 + rate) ** years)
 
 
 def adjust_for_inflation(nominal: float, inflation_pct: float, years: int) -> float:
     rate = inflation_pct / 100
-    return round(nominal / ((1 + rate) ** years), 2)
+    return nominal / ((1 + rate) ** years)
 
 
 def _sum_remanents_for_k(transactions: List[FilteredTransaction], k: KPeriod) -> float:
@@ -121,15 +110,15 @@ def _sum_remanents_for_k(transactions: List[FilteredTransaction], k: KPeriod) ->
 
 
 def _compute_returns_with_periods(
-    raw_transactions: List[RawTransaction],
-    q_periods: List[QPeriod],
-    p_periods: List[PPeriod],
-    k_periods: List[KPeriod],
-    age: int,
-    wage: float,
-    inflation: float,
-    rate: float,
-    include_tax: bool,
+        raw_transactions: List[RawTransaction],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        k_periods: List[KPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
+        rate: float,
+        include_tax: bool,
 ) -> ReturnResponse:
     years = _years_to_retirement(age)
 
@@ -146,18 +135,17 @@ def _compute_returns_with_periods(
 
         profit = round(real_fv - principal, 2)
 
-        kwargs = {
-            "start": k.start,
-            "end": k.end,
-            "amount": principal,
-            "profit": profit,
-        }
+        tax_benefit = compute_nps_tax_benefit(principal, wage) if include_tax else 0.0
 
-        # Only inject taxBenefit for NPS
-        if include_tax:
-            kwargs["taxBenefit"] = compute_nps_tax_benefit(principal, wage)
-
-        savings_by_dates.append(SavingsByDate(**kwargs))
+        savings_by_dates.append(
+            SavingsByDate(
+                start=k.start,
+                end=k.end,
+                amount=principal,
+                profit=profit,
+                taxBenefit=tax_benefit,
+            )
+        )
 
     return ReturnResponse(
         totalTransactionAmount=total_amount,
@@ -167,13 +155,13 @@ def _compute_returns_with_periods(
 
 
 def compute_nps_returns(
-    transactions: List[RawTransaction],
-    k_periods: List[KPeriod],
-    q_periods: List[QPeriod],
-    p_periods: List[PPeriod],
-    age: int,
-    wage: float,
-    inflation: float,
+        transactions: List[RawTransaction],
+        k_periods: List[KPeriod],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
 ) -> ReturnResponse:
     return _compute_returns_with_periods(
         transactions,
@@ -183,19 +171,19 @@ def compute_nps_returns(
         age,
         wage,
         inflation,
-        rate=settings.NPS_RATE,
+        rate=NPS_RATE,
         include_tax=True,
     )
 
 
 def compute_index_returns(
-    transactions: List[RawTransaction],
-    k_periods: List[KPeriod],
-    q_periods: List[QPeriod],
-    p_periods: List[PPeriod],
-    age: int,
-    wage: float,
-    inflation: float,
+        transactions: List[RawTransaction],
+        k_periods: List[KPeriod],
+        q_periods: List[QPeriod],
+        p_periods: List[PPeriod],
+        age: int,
+        wage: float,
+        inflation: float,
 ) -> ReturnResponse:
     return _compute_returns_with_periods(
         transactions,
@@ -205,6 +193,6 @@ def compute_index_returns(
         age,
         wage,
         inflation,
-        rate=settings.INDEX_RATE,
+        rate=INDEX_RATE,
         include_tax=False,
     )
