@@ -22,7 +22,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY service/${DIR_NAME}/ /app/service/${DIR_NAME}/
 COPY service/tests/ /app/tests
 
-EXPOSE 8000
+EXPOSE 5477
 
 RUN groupadd -g 1001 ${DIR_NAME} && \
     useradd -u 1001 -g 1001 -m ${DIR_NAME} && \

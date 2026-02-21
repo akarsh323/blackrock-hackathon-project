@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """
 
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 5477
     reload: bool = True
     log_level: str = "INFO"
     workers: int = 1

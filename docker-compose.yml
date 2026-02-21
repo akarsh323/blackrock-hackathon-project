@@ -14,7 +14,7 @@ services:
       - ./service/micro_savings:/app/service/micro_savings
       - ./service/tests:/app/service/tests
     ports:
-      - "8000:8000"
+      - "5477:5477"
     environment:
       APP_DIR: micro_savings
     deploy:
