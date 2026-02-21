@@ -107,8 +107,8 @@ class TestHandleExceptionFallback:
         with pytest.raises(HTTPException) as exc_info:
             handle_exception(ZeroDivisionError("div by zero"))
         assert (
-                exc_info.value.status_code
-                == EXCEPTION_MAP[ZeroDivisionError]["status_code"]
+            exc_info.value.status_code
+            == EXCEPTION_MAP[ZeroDivisionError]["status_code"]
         )
 
     def test_subclass_without_own_entry_walks_mro(self):
@@ -118,7 +118,7 @@ class TestHandleExceptionFallback:
         with pytest.raises(HTTPException) as exc_info:
             handle_exception(CustomArithmetic("custom arithmetic"))
         assert (
-                exc_info.value.status_code == EXCEPTION_MAP[ArithmeticError]["status_code"]
+            exc_info.value.status_code == EXCEPTION_MAP[ArithmeticError]["status_code"]
         )
 
 
