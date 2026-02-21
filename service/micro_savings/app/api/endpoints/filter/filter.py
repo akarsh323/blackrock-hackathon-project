@@ -4,7 +4,9 @@ from service.micro_savings.app.models.filter import FilterRequest
 from service.micro_savings.app.models.transaction import (
     FilterResult,
 )
-from service.micro_savings.app.transaction_engine.filter_processor import apply_qpk
+from service.micro_savings.app.transaction_engine.filter_processor.qpk_service import (
+    apply_qpk,
+)
 
 router = APIRouter()
 
