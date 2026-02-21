@@ -13,9 +13,9 @@ def get_app() -> FastAPI:
         title="micro_savings",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
-        openapi_url="/api/openapi.json",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
 
     app.add_middleware(
@@ -26,6 +26,6 @@ def get_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(router=router, prefix="/api")
+    app.include_router(router=router, prefix="/blackrock/challenge/v1")
 
     return app
