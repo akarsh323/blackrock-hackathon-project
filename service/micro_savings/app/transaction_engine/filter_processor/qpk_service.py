@@ -11,7 +11,6 @@ from service.micro_savings.app.models.transaction import (
 )
 from service.micro_savings.app.utils.date_utils import is_in_period, parse_dt
 
-
 # ── Step 1: Parse ─────────────────────────────────────────────────────────────
 
 
@@ -28,7 +27,7 @@ def _compute_remanent(amount: float, ceiling: float) -> float:
 
 
 def _validate_transactions(
-        raw: List[RawTransaction],
+    raw: List[RawTransaction],
 ) -> Tuple[List[RawTransaction], List[FilteredInvalidTransaction]]:
     """
     Remove transactions that cannot participate in savings.
@@ -84,9 +83,9 @@ def _validate_transactions(
 
 
 def _apply_q_rule(
-        date: str,
-        base_remanent: float,
-        q_periods: List[QPeriod],
+    date: str,
+    base_remanent: float,
+    q_periods: List[QPeriod],
 ) -> Tuple[float, Optional[AppliedQ]]:
     """
     Hard override: if ANY Q period contains this date, replace remanent
@@ -112,9 +111,9 @@ def _apply_q_rule(
 
 
 def _apply_p_rule(
-        date: str,
-        base_remanent: float,
-        p_periods: List[PPeriod],
+    date: str,
+    base_remanent: float,
+    p_periods: List[PPeriod],
 ) -> Tuple[float, List[AppliedP]]:
     """
     Stacking bonus: ALL P periods that contain this date add their extra
@@ -143,10 +142,10 @@ def _in_any_k_period(date: str, k_periods: List[KPeriod]) -> bool:
 
 
 def apply_qpk(
-        raw_transactions: List[RawTransaction],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        k_periods: List[KPeriod],
+    raw_transactions: List[RawTransaction],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    k_periods: List[KPeriod],
 ) -> Tuple[List[FilteredTransaction], List[FilteredInvalidTransaction]]:
     """
     Full filter pipeline for a list of raw transactions.
@@ -217,8 +216,8 @@ def apply_qpk(
 
 
 def sum_remanents_for_k_period(
-        transactions: List[FilteredTransaction],
-        k: KPeriod,
+    transactions: List[FilteredTransaction],
+    k: KPeriod,
 ) -> float:
     """
     Sum the remanents of all transactions whose date falls within a K period.

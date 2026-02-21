@@ -15,7 +15,6 @@ from service.micro_savings.app.transaction_engine.tax_processor.tax_service impo
 from service.micro_savings.app.utils.date_utils import is_in_period, parse_dt
 from service.micro_savings.app.utils.settings import settings
 
-
 # ── Internal parse helpers ─────────────────────────────────────────────────────
 
 
@@ -53,7 +52,7 @@ def _is_valid(tx: RawTransaction, seen_dates: dict) -> Tuple[bool, str]:
 
 
 def _apply_q(
-        date: str, remanent: float, q_periods: List[QPeriod]
+    date: str, remanent: float, q_periods: List[QPeriod]
 ) -> Tuple[float, Optional[AppliedQ]]:
     """Latest-start Q period wins; replaces remanent with fixed amount."""
     matching = [q for q in q_periods if is_in_period(date, q.start, q.end)]
@@ -64,7 +63,7 @@ def _apply_q(
 
 
 def _apply_p(
-        date: str, remanent: float, p_periods: List[PPeriod]
+    date: str, remanent: float, p_periods: List[PPeriod]
 ) -> Tuple[float, List[AppliedP]]:
     """All matching P periods stack their extras on top of the remanent."""
     applied: List[AppliedP] = []
@@ -79,9 +78,9 @@ def _apply_p(
 
 
 def _build_filtered_transactions(
-        raw: List[RawTransaction],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
+    raw: List[RawTransaction],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
 ) -> Tuple[List[FilteredTransaction], float, float]:
     """
     Parse → validate → apply Q/P for a batch of raw transactions.
@@ -189,13 +188,13 @@ def _sum_remanents_for_k(transactions: List[FilteredTransaction], k: KPeriod) ->
 
 
 def compute_returns(
-        raw_transactions: List[RawTransaction],
-        k_periods: List[KPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
-        rate: float,
-        include_tax: bool,
+    raw_transactions: List[RawTransaction],
+    k_periods: List[KPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
+    rate: float,
+    include_tax: bool,
 ) -> ReturnResponse:
     """
     Complete pipeline from raw expenses to projected retirement corpus.
@@ -264,15 +263,15 @@ def compute_returns(
 
 
 def _compute_returns_with_periods(
-        raw_transactions: List[RawTransaction],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        k_periods: List[KPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
-        rate: float,
-        include_tax: bool,
+    raw_transactions: List[RawTransaction],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    k_periods: List[KPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
+    rate: float,
+    include_tax: bool,
 ) -> ReturnResponse:
     """
     Full pipeline with Q/P/K periods applied.
@@ -318,13 +317,13 @@ def _compute_returns_with_periods(
 
 
 def compute_nps_returns(
-        transactions: List[RawTransaction],
-        k_periods: List[KPeriod],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
+    transactions: List[RawTransaction],
+    k_periods: List[KPeriod],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
 ) -> ReturnResponse:
     """NPS: 7.11% annually, includes tax benefit under Section 80CCD."""
     return _compute_returns_with_periods(
@@ -341,13 +340,13 @@ def compute_nps_returns(
 
 
 def compute_index_returns(
-        transactions: List[RawTransaction],
-        k_periods: List[KPeriod],
-        q_periods: List[QPeriod],
-        p_periods: List[PPeriod],
-        age: int,
-        wage: float,
-        inflation: float,
+    transactions: List[RawTransaction],
+    k_periods: List[KPeriod],
+    q_periods: List[QPeriod],
+    p_periods: List[PPeriod],
+    age: int,
+    wage: float,
+    inflation: float,
 ) -> ReturnResponse:
     """Index Fund: 14.49% annually, no tax benefit."""
     return _compute_returns_with_periods(
